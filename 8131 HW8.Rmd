@@ -1,0 +1,59 @@
+---
+title: "8131 HW8"
+output: html_document
+date: "2023-04-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(gee)
+library(nlme)
+library(lme4)
+```
+
+```{r}
+data = read_excel("/Users/yanfeng/Desktop/CU/研一下/P8131/HW8/HW8-HEALTH.xlsx") %>% 
+  janitor::clean_names() %>% 
+  mutate(txt = as.factor(txt),
+         health = as.numeric(health == "Good"),
+         time = as.integer(time))
+```
+
+# a
+```{r}
+data_random = data %>% filter(time == 1)
+relation_random = glm(health~txt, data = data_random, family = binomial(link = "logit")) 
+relation_random %>% broom::tidy()%>% knitr::kable(digits = 3)
+```
+
+# b
+```{r}
+health.lda = data %>%
+    filter(!id %in% names(which(table(data$id) == 1)))
+health.baseline = subset(health.lda, time == "1")
+health.lda$baseline = rep(health.baseline$health, as.numeric(table(health.lda$id)))
+health.lda$time = health.lda$time - 1
+health.lda = health.lda %>% filter(time>0)
+
+gee_model = gee(health ~ baseline + txt + time + agegroup,
+              data = health.lda,
+              id = id,
+              family = "binomial",
+              corstr = "unstructured",
+              scale.fix = TRUE,
+              scale.value = 1)
+summary(gee_model)
+```
+
+# c
+```{r}
+glmm_model = glmer(health ~ baseline + txt + time + agegroup + (1 | id),
+             data = health.lda,
+             family = binomial)
+summary(glmm_model)
+```
